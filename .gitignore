@@ -1,0 +1,11 @@
+.venv/
+models/
+shopharness/data/shop.db
+shopharness/data/shop-checkpoints.db
+traces/
+evolve/out/
+evolve/versions/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
