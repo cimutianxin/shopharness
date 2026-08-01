@@ -18,6 +18,7 @@
 - **工具与权限系统**:基于 OpenAI function calling + MCP 风格 schema 实现 9 个业务工具;设计 READ/WRITE/DANGEROUS 三级权限模型,改价等危险操作需买家复述确认 + 最低限价护栏拦截 + 审计落库,真实模型实测**危险操作零误执行**
 - **多 Agent 架构**:实现上下文隔离的子代理(检索/售后),中间检索噪音不进主对话上下文,仅回传结论摘要;售后长流程基于 LangGraph interrupt + SqliteSaver checkpoint,支持跨进程断点恢复
 - **记忆与自进化**:实现情景/语义/程序性三层记忆(会话摘要、买家画像、技能版本);构建 bad case 挖掘 → LLM 提案 → 离线回归门禁 → 灰度/回滚的自进化闭环,以及 traces → SFT/DPO 的数据飞轮管线(强制 PII 脱敏)
+- **Post-training 实测**:跑通完整 QLoRA SFT 闭环——真实模型轨迹采集(拒绝采样 30 条)→ 4bit nf4 + LoRA(r16)训练 → adapter 合并 → vLLM 部署,留出集 trajectory 通过率从基线 5/6 提升至 6/6(失败案例"优惠计算工具选择"被修正)
 - **工程质量**:71 项单元测试 + 15 条 trajectory 评测场景全绿;真实 vLLM 端到端验证 6 类会话(含子代理委托、跨会话记忆注入、RAG 语义检索),首 token 延迟 ~1.6s,prefix cache 命中率 77%
 
 ### 精简版(一页简历)
@@ -32,7 +33,7 @@
 **ShopHarness:电商客服Agent Harness,个人项目(GitHub)** 2026.07–2026.08
 - 目的:以本地部署Qwen3-8B为基座,设计并实现电商客服Agent Harness,覆盖售前转化、售中改价、售后工单全流程,完成真实模型端到端验证
 - 方法:实现四层上下文与三级compaction、RAG混合检索(bge向量+关键词RRF)、三级工具权限模型(危险操作复述确认、护栏与审计)、上下文隔离子代理,以及基于LangGraph的长程流程断点恢复
-- 总结:构建三层记忆与自进化闭环(bad case挖掘、提案、回归门禁、灰度回滚),打通SFT/DPO数据飞轮导出管线,并跑通QLoRA SFT微调闭环;71项测试全部通过
+- 总结:构建三层记忆与自进化闭环(bad case挖掘、提案、回归门禁、灰度回滚),打通SFT/DPO数据飞轮导出管线,并跑通QLoRA SFT微调闭环(轨迹采集→4bit量化训练→合并部署,留出集通过率5/6→6/6);71项测试全部通过
 
 ### 算法岗版(目的/方法/总结结构)
 
@@ -114,6 +115,14 @@ bge-small-zh 本地向量模型(经 ModelScope 下载,transformers 直读 + mean
 
 **Q14:数据飞轮具体怎么转?**
 traces(JSONL span,字段对齐 OTel GenAI 约定)→ 筛选"成功会话"(无 handoff/无护栏拒绝)导出 SFT 样本;同 prompt 下"成功回复 vs 转人工前回复"配对导出 DPO 偏好对 → 强制 PII 脱敏(手机号/身份证/邮箱)+ schema 校验 → 接 ms-swift/TRL 做 LoRA SFT→DPO→(进阶)GRPO,reward 用转化率/轮次效率/违规率的规则组合。
+
+**Q14b:SFT 闭环真的跑通了吗?讲讲细节。**
+跑通了,而且踩了一路坑,每个坑都是知识点:
+1. **采集**:不用 Mock 造假数据,让真实模型在 harness 里跑 25 段脚本化会话,拒绝采样(剔除 handoff/护栏/工具错误的回合)得 30 条真实轨迹样本;
+2. **精度**:FP8 checkpoint 无法直接 QLoRA(transformers 拒绝 FP8+bnb 叠加),手写 128×128 块缩放反量化脚本把 FP8 还原成 BF16——面试可以展开讲"为什么训练要 BF16:FP8 尾数装不下梯度小更新";
+3. **训练**:QLoRA(4bit nf4 存储 + bf16 计算,LoRA r16),16GB 单卡,chat template 不支持 assistant mask,自己用增量模板渲染定位全部 assistant span(含 tool_calls)做 completion-only loss;
+4. **部署**:adapter 合并回 BF16,vLLM 动态 FP8 量化上线;
+5. **验证**:留出集(与训练集无重叠)trajectory 评测,基线 5/6 → 微调 6/6,失败案例"该用 calc_discount 错用 get_product_detail"被修正。数据量小是事实,但闭环每个环节都是真的。
 
 ### 评测与工程
 

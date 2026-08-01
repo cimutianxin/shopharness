@@ -26,7 +26,7 @@
 职位要求
 1、熟悉Agentic RL的方法，了解Agentic RL Infra（例如CodeRL，Reward System），熟悉模型的Post-Training训练技术，能针对特定模型能力问题进行SFT、RL训练优化；
 2、精通Python的编程技能，并有构建生产应用程序的经验，具备在Linux开发环境下的开发能力，熟悉至少一种主流大模型应用框架（如LangGraph、LlamaIndex、OpenAI AgentsSDK、GoogleADK等）；
-3、对大模型和Agent有较深入的理解，熟悉常见的LLM实施模式、提示工程、评估框架、检索框架等，了解Agent Architectures/Structures（Multi-Agent、Context Engineering/Mangemant、ReAct/PlanAct/CodeAct），了解Agent相关的交互协议（MCP、A2A、FunctionCall）；
+3、对大模型和Agent有较深入的理解，熟悉常见的LLM实施模式、提示工程、评估框架、检索框架等，了解Agent Architectures/Structures（Multi-Agent、Context Engineering/Mangemant、ReAct/PlanAct/CodeAct），了解Agent相关的交互协议（MCP、A2A、FunctionCall）；   
 4、具备技术沟通能力，能够创建可扩展的内容（文档、教程、示例代码），同时有项目管理能力和多团队协同能力；了解大模型服务生态，有AI算法相关领域技术背景、AI产品工作经验的优先。
 
 ###职位描述：

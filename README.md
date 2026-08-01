@@ -98,7 +98,7 @@ bash scripts/serve_vllm.sh        # 监听 :8000,hermes tool parser + qwen3 reas
 | 独立 MCP Server 进程 | 进程内 ToolRegistry(schema 同 MCP 风格) | FastMCP 包装 tools/servers.py,Streamable HTTP 暴露 |
 | OTel + Langfuse | JSONL trace(字段已对齐 GenAI semconv) | Tracer.span 替换为 OTel SDK exporter |
 | 子代理 / LangGraph 长流程 | ✅ 已实现(M3) | — |
-| 自进化 / 数据飞轮 | ✅ 已实现闭环与导出(M4),训练未执行 | traces 脱敏后接 ms-swift/TRL 做 LoRA SFT→DPO→GRPO |
+| 自进化 / 数据飞轮 | ✅ 已实现闭环、导出与 QLoRA SFT 实测(留出集 5/6→6/6) | 数据规模化后接 DPO/GRPO(Agentic RL) |
 
 ## M3/M4 使用说明
 
@@ -121,9 +121,14 @@ bash scripts/serve_vllm.sh        # 监听 :8000,hermes tool parser + qwen3 reas
 .venv/bin/python evolve/export_sft.py            # traces → evolve/out/sft.jsonl
 .venv/bin/python evolve/export_dpo.py            # traces → evolve/out/dpo.jsonl
 
-# 真实训练(未内置,导出的 JSONL 可直接喂):
-#   ms-swift: swift sft --model models/Qwen3-8B-FP8 --dataset evolve/out/sft.jsonl --train_type lora
-#   TRL:     DPOTrainer(train_dataset=load_dataset('json', data_files='evolve/out/dpo.jsonl'), ...)
+# Post-training 闭环(已实测跑通):
+.venv/bin/python evolve/collect_sft.py           # 真实 vLLM 轨迹采集(拒绝采样)
+.venv/bin/python evolve/train_lora.py            # QLoRA SFT(4bit nf4 + LoRA r16,16GB 显存)
+.venv/bin/python evolve/merge_lora.py            # adapter 合并回 BF16 基座
+bash scripts/serve_sft.sh                        # 部署微调模型(动态 FP8 量化)
+.venv/bin/python evolve/eval_lora.py --model cs-sft   # 留出集对比
+# 实测:留出集 trajectory 通过率 基线 5/6 → 微调后 6/6
+# (失败案例"精华到手价"微调后正确选择 calc_discount)
 ```
 
 ## 目录结构
