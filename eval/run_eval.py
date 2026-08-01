@@ -21,6 +21,7 @@ from scenarios import SCENARIOS, Scenario  # noqa: E402
 def run_scenario(sc: Scenario, tmpdir: str) -> list[str]:
     """返回失败原因列表,空列表表示通过。"""
     overrides = {"db_path": f"{tmpdir}/{sc.name}.db", "trace_dir": f"{tmpdir}/traces",
+                 "rag_enabled": False,  # 评测用 Mock,语义检索单测覆盖
                  **sc.settings_overrides}
     settings = Settings(**overrides)
     harness = build_harness(settings, MockLLM())

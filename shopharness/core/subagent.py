@@ -21,12 +21,13 @@ from .permissions import Level, PermissionManager
 from .skills import SkillManager
 from .trace import Tracer
 
-RESEARCH_TOOLS = {"search_products", "get_product_detail", "calc_discount"}
+RESEARCH_TOOLS = {"search_products", "search_faq", "get_product_detail",
+                  "calc_discount"}
 RESEARCH_PROMPT = """你是检索子代理,为主客服代理完成商品检索/比价任务。
 用工具获取真实数据后,输出 150 字以内的结论摘要:候选商品、关键参数、
 价格/到手价、你的推荐及理由。不要寒暄,直接给结论。"""
 
-AFTERSALE_TOOLS = {"get_order", "get_logistics", "create_ticket"}
+AFTERSALE_TOOLS = {"get_order", "get_logistics", "search_faq", "create_ticket"}
 AFTERSALE_PROMPT = """你是售后工单子代理,为主客服代理处理退换货诉求。
 按 SOP 执行:核实订单 → 查看物流 → 判断售后期限(签收 7 天内)→ 需要时建工单。
 输出结论摘要:订单状态、判断依据、已执行操作、给买家的建议方案。"""

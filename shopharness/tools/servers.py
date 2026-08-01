@@ -13,6 +13,7 @@ from typing import Any
 
 from ..core.hooks import HookResult
 from ..core.permissions import Level
+from ..core.rag import VectorStore, rrf_fuse
 from .registry import Tool, ToolError, ToolRegistry
 
 
@@ -22,7 +23,8 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- 工具实现
 
-def make_tools(conn: sqlite3.Connection) -> list[Tool]:
+def make_tools(conn: sqlite3.Connection,
+               vector_store: "VectorStore | None" = None) -> list[Tool]:
 
     def search_products(keyword: str, category: str | None = None) -> dict[str, Any]:
         if not keyword or not keyword.strip():
@@ -46,17 +48,36 @@ def make_tools(conn: sqlite3.Connection) -> list[Tool]:
             scored.sort(key=lambda x: (-x[0], x[1]["price"]))
             return scored
 
-        scored = score_rows(category)
         note = None
-        # 类目过滤后无结果 → 容错重试:忽略类目再搜一次
-        if not scored and category:
-            scored = score_rows(None)
-            note = f"类目「{category}」无匹配,已按全店范围检索"
-        items = [{
-            "sku": r["sku"], "name": r["name"], "price": r["price"],
-            "stock": r["stock"],
-            "selling_points": r["selling_points"][:60],
-        } for _, r in scored[:5]]
+        if vector_store is not None:
+            # RAG 混合检索:关键词(精确/SKU 友好) + 向量(语义/口语化友好),RRF 融合
+            kw_ids = [r["sku"] for _, r in score_rows(category)]
+            vec_ids = [doc_id for doc_id, sim in
+                       vector_store.search(keyword, doc_type="product", top_k=8)
+                       if sim > 0.4]
+            fused = rrf_fuse(kw_ids, vec_ids)
+            by_sku = {r["sku"]: r for r in rows}
+            ordered = [by_sku[s] for s in fused if s in by_sku]
+            if not ordered and category:
+                ordered = [by_sku[s] for s in
+                           rrf_fuse([r["sku"] for _, r in score_rows(None)],
+                                    vec_ids) if s in by_sku]
+                note = f"类目「{category}」无匹配,已按全店范围检索"
+            items = [{
+                "sku": r["sku"], "name": r["name"], "price": r["price"],
+                "stock": r["stock"],
+                "selling_points": r["selling_points"][:60],
+            } for r in ordered[:5]]
+        else:
+            scored = score_rows(category)
+            if not scored and category:
+                scored = score_rows(None)
+                note = f"类目「{category}」无匹配,已按全店范围检索"
+            items = [{
+                "sku": r["sku"], "name": r["name"], "price": r["price"],
+                "stock": r["stock"],
+                "selling_points": r["selling_points"][:60],
+            } for _, r in scored[:5]]
         if not items:
             return {"count": 0, "products": [],
                     "hint": "未找到匹配商品,可换关键词重试"}
@@ -64,6 +85,30 @@ def make_tools(conn: sqlite3.Connection) -> list[Tool]:
         if note:
             result["note"] = note
         return result
+
+    def search_faq(query: str) -> dict[str, Any]:
+        if not query or not query.strip():
+            raise ToolError("query 不能为空")
+        hits: list[dict[str, Any]] = []
+        if vector_store is not None:
+            for doc_id, sim in vector_store.search(query, doc_type="faq",
+                                                   top_k=2):
+                row = conn.execute(
+                    "SELECT * FROM faqs WHERE id = ?", (doc_id,)).fetchone()
+                if row and sim > 0.4:
+                    hits.append({"question": row["question"],
+                                 "answer": row["answer"],
+                                 "similarity": round(sim, 3)})
+        else:
+            for row in conn.execute("SELECT * FROM faqs").fetchall():
+                if any(t in row["question"] + row["answer"]
+                       for t in query.split()):
+                    hits.append({"question": row["question"],
+                                 "answer": row["answer"]})
+                if len(hits) >= 2:
+                    break
+        return {"count": len(hits), "faqs": hits} if hits else \
+            {"count": 0, "faqs": [], "hint": "知识库未覆盖该问题,可转人工"}
 
     def get_product_detail(sku: str) -> dict[str, Any]:
         row = conn.execute(
@@ -150,6 +195,12 @@ def make_tools(conn: sqlite3.Connection) -> list[Tool]:
                  "category": {"type": "string", "description": "可选,类目过滤"}},
               "required": ["keyword"]},
              Level.READ, search_products),
+        Tool("search_faq", "检索店铺知识库(退换政策/发货时效/发票/保修等),"
+             "回答规则类问题前必查",
+             {**obj, "properties": {
+                 "query": {"type": "string", "description": "问题描述"}},
+              "required": ["query"]},
+             Level.READ, search_faq),
         Tool("get_product_detail", "查询单个商品完整详情(售价/最低限价/库存/卖点)",
              {**obj, "properties": {
                  "sku": {"type": "string", "description": "商品 SKU,如 YX-1001"}},
@@ -195,9 +246,10 @@ def make_tools(conn: sqlite3.Connection) -> list[Tool]:
     ]
 
 
-def build_registry(conn: sqlite3.Connection) -> ToolRegistry:
+def build_registry(conn: sqlite3.Connection,
+                   vector_store: VectorStore | None = None) -> ToolRegistry:
     registry = ToolRegistry()
-    for tool in make_tools(conn):
+    for tool in make_tools(conn, vector_store):
         registry.register(tool)
     return registry
 

@@ -1,7 +1,7 @@
 ---
 name: return-sop
 intents: 退货, 退款, 换货, 质量问题, 坏了, 售后
-tools: get_order, get_logistics, create_ticket, delegate_aftersale
+tools: get_order, get_logistics, search_faq, create_ticket, delegate_aftersale
 description: 退换货标准作业流程
 ---
 # 退换货 SOP

@@ -14,6 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 vllm = ["vllm>=0.25"]
+rag = ["transformers>=4.45", "numpy>=1.26"]
 dev = ["pytest>=8.0"]
 
 [build-system]

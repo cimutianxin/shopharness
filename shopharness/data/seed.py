@@ -55,6 +55,12 @@ CREATE TABLE IF NOT EXISTS audit (
     result TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
+CREATE TABLE IF NOT EXISTS faqs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    category TEXT NOT NULL
+);
 """
 
 PRODUCTS = [
@@ -124,6 +130,25 @@ COUPONS = [
     ("YX-9002", 199.0, 20.0),
 ]
 
+FAQS = [
+    ("支持七天无理由退货吗", "大部分商品支持签收后 7 天无理由退换(食品、定制类除外),"
+     "退货运费由买家承担,质量问题运费我们承担。", "售后"),
+    ("发货要多久", "工作日 16 点前付款的订单当天发货,其余次日发货;"
+     "默认中通/圆通,新疆西藏时效顺延 3-5 天。", "物流"),
+    ("可以开发票吗", "支持电子普通发票,下单时备注抬头或发货后联系客服补开,"
+     "1-3 个工作日发送至预留邮箱。", "售后"),
+    ("耳机保修多久", "数码类产品一年质保,耳机支持一年只换不修(非人为损坏),"
+     "保修需保留订单号作为凭证。", "售后"),
+    ("优惠券可以叠加吗", "满减券与店铺折扣可叠加,多张满减券不可叠加,"
+     "系统自动选用最优组合。", "优惠"),
+    ("怎么查询物流", "提供订单号即可查询实时物流;发货后也会有短信通知,"
+     "签收前请检查外包装是否完好。", "物流"),
+    ("商品是正品吗", "本店为品牌授权旗舰店,所有商品正品保障,支持专柜验货,"
+     "假一赔十。", "售前"),
+    ("尺码怎么选", "服饰类建议参考详情页尺码表,介于两码之间建议拍大一码;"
+     "不合身支持 7 天内免费换码。", "售前"),
+]
+
 
 def ensure_db(db_path: str) -> sqlite3.Connection:
     """建库(幂等)并写入种子数据,返回连接。"""
@@ -142,5 +167,8 @@ def ensure_db(db_path: str) -> sqlite3.Connection:
         conn.executemany(
             "INSERT INTO coupons(sku, threshold, discount) VALUES (?,?,?)",
             COUPONS)
+        conn.executemany(
+            "INSERT INTO faqs(question, answer, category) VALUES (?,?,?)",
+            FAQS)
         conn.commit()
     return conn

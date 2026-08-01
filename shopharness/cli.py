@@ -29,10 +29,14 @@ def build_harness(settings: Settings, llm: LLMClient,
                   buyer_id: str = "anonymous") -> Harness:
     """组装完整 Harness(依赖注入入口,测试与 eval 也走这里)。"""
     from .core.memory import MemoryStore
+    from .core.rag import create_vector_store
     from .core.subagent import SubagentRunner, register_subagent_tools
 
     conn = ensure_db(settings.db_path)
-    registry = build_registry(conn)
+    vector_store = None
+    if settings.rag_enabled:
+        vector_store = create_vector_store(conn, settings.embedding_model)
+    registry = build_registry(conn, vector_store)
     hooks = HookBus(pre_hooks=[make_price_guardrail(conn)],
                     post_hooks=[make_audit_hook(conn)])
     skills = SkillManager(skills_dir=settings.skills_dir)

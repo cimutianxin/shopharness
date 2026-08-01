@@ -1,7 +1,7 @@
 ---
 name: inquiry-conversion
 intents: 耳机, 键盘, 鼠标, 枕头, 四件套, 冲锋衣, T恤, 加湿器, 净化器, 气泡水, 咖啡, 绘本, 点读笔, 瑜伽垫, 跳绳, 洗面奶, 精华, 杯垫, 推荐, 怎么样, 好用吗, 优惠, 便宜, 到手价, 对比, 比较, 哪个好, 怎么选
-tools: search_products, get_product_detail, calc_discount, delegate_research
+tools: search_products, search_faq, get_product_detail, calc_discount, delegate_research
 description: 询单转化话术,售前咨询场景使用
 ---
 # 询单转化话术

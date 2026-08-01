@@ -22,6 +22,10 @@ class Settings(BaseModel):
     skills_dir: str = "skills"
     trace_dir: str = "traces"
 
+    # RAG:向量检索(bge-small-zh);模型缺失时自动降级为纯关键词检索
+    rag_enabled: bool = True
+    embedding_model: str = "models/bge-small-zh-v1.5"
+
     # vLLM(OpenAI-compatible)接入参数
     model: str = "Qwen/Qwen3-8B-FP8"
     base_url: str = "http://localhost:8000/v1"

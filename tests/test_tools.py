@@ -79,7 +79,7 @@ def test_create_ticket(registry):
 
 def test_tool_schema_format(registry):
     schemas = registry.schemas()
-    assert len(schemas) == 8
+    assert len(schemas) == 9
     for s in schemas:
         assert s["type"] == "function"
         assert "name" in s["function"]

@@ -9,7 +9,8 @@
 | --- | --- | --- |
 | Harness 主 loop | turn 管理、最大步数、非法工具自我纠正、连续失败熔断 | `shopharness/core/harness.py` |
 | 上下文工程 | 分层上下文(L0 技能指令 / L1 记忆 / L2 结构化状态 / L3+L4 历史)+ 三级 compaction | `shopharness/core/context.py` |
-| 工具系统 | 8 个业务工具(SQLite),OpenAI function calling schema,按技能白名单动态裁剪 | `shopharness/tools/` |
+| 工具系统 | 9 个业务工具(SQLite),OpenAI function calling schema,按技能白名单动态裁剪 | `shopharness/tools/` |
+| **RAG 检索增强** | bge-small-zh 向量语义检索 + 关键词检索,RRF 混合排序;商品库 + FAQ 知识库;模型缺失自动降级 | `shopharness/core/rag.py` |
 | 权限模型 | READ / WRITE / DANGEROUS 三级;改价须经买家复述确认 + 最低限价护栏 + 审计落库 | `shopharness/core/permissions.py`、`hooks.py` |
 | Skills | 目录式 SKILL.md(询单转化 / 催付 / 退换 SOP),意图路由激活,热加载 | `skills/`、`core/skills.py` |
 | 转人工 | 关键词/熔断/步数超限触发,自动生成交接摘要并建工单 | `shopharness/core/handoff.py` |
@@ -31,7 +32,7 @@ uv pip install --python .venv/bin/python -i https://mirrors.aliyun.com/pypi/simp
     openai pydantic rank_bm25 pytest httpx
 
 # 跑测试与评测
-.venv/bin/python -m pytest tests/ -q      # 64 项
+.venv/bin/python -m pytest tests/ -q      # 71 项
 .venv/bin/python eval/run_eval.py         # 15 场景
 
 # 演示对话(含完整"改价确认"剧情)
@@ -52,6 +53,13 @@ bash scripts/serve_vllm.sh        # 监听 :8000,hermes tool parser + qwen3 reas
 # 3. 对话(默认 /no_think 压低首 token 延迟;--thinking 开启思考模式)
 .venv/bin/python -m shopharness.cli --endpoint http://localhost:8000/v1
 ```
+
+> RAG(语义检索)为可选增强:下载 bge 向量模型后自动启用,缺失时降级为关键词检索
+> ```bash
+> uv pip install --python .venv/bin/python -i https://mirrors.aliyun.com/pypi/simple/ transformers
+> python -c "from modelscope import snapshot_download; \
+>   snapshot_download('BAAI/bge-small-zh-v1.5', local_dir='models/bge-small-zh-v1.5')"
+> ```
 
 > 已在本机(RTX 4060 Ti 16GB / vLLM 0.26.0)实测:商品咨询、订单查询、
 > 改价拦截→确认→成功、改价低于限价被护栏拒绝、检索子代理委托、

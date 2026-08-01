@@ -12,7 +12,8 @@ from shopharness.llm.mock_client import MockLLM
 @pytest.fixture()
 def settings(tmp_path):
     return Settings(db_path=str(tmp_path / "shop.db"),
-                    trace_dir=str(tmp_path / "traces"))
+                    trace_dir=str(tmp_path / "traces"),
+                    rag_enabled=False)  # 测试默认关向量检索,保持快速
 
 
 @pytest.fixture()
